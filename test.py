@@ -13,7 +13,7 @@ from dataset.semi import SemiDataset
 try:
     from model.semseg.dpt import DPT
 except ImportError:
-    print("Error: 找不到 model.semseg.dpt。请确保你在项目根目录下运行脚本。")
+    print("Error: model.semseg.dpt not found. Please ensure your path is correct.")
     exit(1)
 
 def get_parser():
@@ -178,4 +178,5 @@ def test(args):
 
 if __name__ == '__main__':
     args = get_parser().parse_args()
+
     test(args)
