@@ -25,7 +25,7 @@ Your file structure will be like:
         └── ...
 ```
 
-### Pretrained 
+### Pretrained Backbone
 ---
 Download the pretrained [Checkpoints](https://github.com/facebookresearch/dinov2).
 Your file structure will be like:
@@ -35,10 +35,15 @@ Your file structure will be like:
     └── ...
 ```
 
-### Training
+### Training and validation
 ---
 ```
 sh scripts/train_love_1_100.sh 8 29501 29502 29503 29504 29505 29506 29507 29508
+```
+### Testing
+---
+```
+python test.py --config configs/dataset.yaml --checkpoint 'best.pth'
 ```
 
 ### Determined AI
@@ -49,7 +54,15 @@ det e create det_4090.yaml .
 ```
 
 ### Citation
+---
 If you find it useful, please consider citing:
 ```
-
+@article{wang2026vision,
+  title         = {Vision-Language Model Purified Semi-Supervised Semantic Segmentation for Remote Sensing Images},
+  author        = {Wang, Shanwen and Sun, Xin and Hong, Danfeng and Zhou, Fei},
+  journal       = {arXiv preprint arXiv:2602.00202},
+  year          = {2026},
+  month         = feb,
+  note          = {Available at \url{https://arxiv.org/abs/2602.00202}}
+}
 ```
