@@ -53,6 +53,11 @@ cd det_create
 det e create det_4090.yaml .
 ```
 
+### Hugging Face
+---
+Download the processed [Datasets](https://huggingface.co/datasets/fluorites/SemiEarth/tree/main).\
+Download the [Checkpoints.pth](https://huggingface.co/fluorites/SemiEarth/tree/main).
+
 ### Citation
 ---
 If you find it useful, please consider citing:
