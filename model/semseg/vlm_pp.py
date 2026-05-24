@@ -22,7 +22,7 @@ class QwenVLPurifiedSemi:
         self.use_4bit = cfg.get('use_4bit', True)
         self.bbox_confidence = cfg.get('bbox_confidence', 0.95)
 
-        self.inference_interval = cfg.get('qwen_inference_interval', 1)
+        self.inference_interval = cfg.get('qwen_inference_interval', 2)
         self.current_iter = 0
 
         self.cached_spatial_probs = None
