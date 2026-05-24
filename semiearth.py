@@ -91,6 +91,26 @@ def main():
         logger.info('Encoder params: {:.1f}M'.format(count_params(model.backbone)))
         logger.info('Decoder params: {:.1f}M\n'.format(count_params(model.head)))
 
+        try:
+            from thop import profile as thop_profile, clever_format
+            import copy
+            _patch = 14
+            _sz = cfg['crop_size'] if isinstance(cfg['crop_size'], int) else cfg['crop_size'][0]
+            _sz = (_sz // _patch) * _patch
+            _dummy = torch.randn(1, 3, _sz, _sz)
+            _model_copy = copy.deepcopy(model)
+            _macs, _ = thop_profile(_model_copy, inputs=(_dummy,), verbose=False)
+            del _model_copy, _dummy
+            _gflops_infer = _macs * 2 / 1e9
+            _gflops_train = _gflops_infer * 3
+            _macs_str, _ = clever_format([_macs, 0], '%.3f')
+            logger.info(f'[Efficiency] Input size for FLOPs: {_sz}×{_sz}')
+            logger.info(f'[Efficiency] MACs          : {_macs_str}')
+            logger.info(f'[Efficiency] Inference FLOPs: {_gflops_infer:.2f} GFLOPs')
+            logger.info(f'[Efficiency] Training FLOPs : {_gflops_train:.2f} GFLOPs (≈3× inference)\n')
+        except ImportError:
+            logger.warning('[Efficiency] thop 未安装，跳过 FLOPs 测量 (pip install thop)')
+
     local_rank = int(os.environ["LOCAL_RANK"])
     model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
     model.cuda()
@@ -98,6 +118,18 @@ def main():
     model = torch.nn.parallel.DistributedDataParallel(
         model, device_ids=[local_rank], broadcast_buffers=False, output_device=local_rank, find_unused_parameters=True
     )
+    if rank == 0 and cfg.get('profile_model', False):
+        from profile_model import measure_flops, measure_fps
+        _H, _W = cfg['crop_size'] if isinstance(cfg['crop_size'], (list, tuple)) \
+            else (cfg['crop_size'], cfg['crop_size'])
+        _dummy = torch.randn(1, 3, _H, _W).cuda()
+        model.eval()
+        logger.info('\n[Profile] FLOPs & Params')
+        measure_flops(model.module, _dummy, logger)  # .module 去掉 DDP 包装
+        logger.info('[Profile] FPS')
+        measure_fps(model.module, _dummy, warmup=30, runs=100,
+                    device=torch.device('cuda'), logger=logger)
+        model.train()
 
     model_ema = deepcopy(model)
     model_ema.eval()
@@ -171,6 +203,7 @@ def main():
         total_loss_x = AverageMeter()
         total_loss_s = AverageMeter()
         total_mask_ratio = AverageMeter()
+        total_throughput = AverageMeter()
 
         trainloader_l.sampler.set_epoch(epoch)
         trainloader_u.sampler.set_epoch(epoch)
@@ -181,6 +214,9 @@ def main():
 
         for i, ((img_x, mask_x),
                 (img_u_w, img_u_s, _, ignore_mask, cutmix_box, _)) in enumerate(loader):
+            _iter_start = torch.cuda.Event(enable_timing=True)
+            _iter_end = torch.cuda.Event(enable_timing=True)
+            _iter_start.record()
 
             img_x, mask_x = img_x.cuda(), mask_x.cuda()
             img_u_w, img_u_s = img_u_w.cuda(), img_u_s.cuda()
@@ -230,6 +266,13 @@ def main():
                 ignore_mask != 255).sum()
             total_mask_ratio.update(mask_ratio.item())
 
+            _iter_end.record()
+            torch.cuda.synchronize()
+            _iter_ms = _iter_start.elapsed_time(_iter_end)  # ms/iter
+            _imgs_iter = cfg['batch_size'] * world_size * 2  # labeled + unlabeled
+            _throughput = _imgs_iter / (_iter_ms / 1000.0)  # images/s
+            total_throughput.update(_throughput)
+
             iters = epoch * len(trainloader_u) + i
             lr = cfg['lr'] * (1 - iters / total_iters) ** 0.9
             optimizer.param_groups[0]["lr"] = lr
@@ -249,14 +292,25 @@ def main():
                 writer.add_scalar('train/mask_ratio', mask_ratio, iters)
 
             if (i % (len(trainloader_u) // 8) == 0) and (rank == 0):
-                logger.info('Iters: {:}, LR: {:.7f}, Total loss: {:.3f}, Loss x: {:.3f}, Loss s: {:.3f}, Mask ratio: '
-                            '{:.3f}'.format(i, optimizer.param_groups[0]['lr'], total_loss.avg, total_loss_x.avg,
-                                            total_loss_s.avg, total_mask_ratio.avg))
+                logger.info(
+                    'Iters: {:}, LR: {:.7f}, Total loss: {:.3f}, Loss x: {:.3f}, '
+                    'Loss s: {:.3f}, Mask ratio: {:.3f}, Throughput: {:.1f} img/s'.format(
+                        i, optimizer.param_groups[0]['lr'],
+                        total_loss.avg, total_loss_x.avg,
+                        total_loss_s.avg, total_mask_ratio.avg,
+                        total_throughput.avg
+                    )
+                )
 
         eval_mode = 'sliding_window' if cfg['dataset'] == '-' else 'original'
         mIoU, iou_class = evaluate(model, valloader, eval_mode, cfg, multiplier=14)
         mIoU_ema, iou_class_ema = evaluate(model_ema, valloader, eval_mode, cfg, multiplier=14)
-
+        if rank == 0:
+            logger.info(
+                '[Epoch {:}] Avg Training Throughput (FPS): {:.1f} img/s'.format(
+                    epoch, total_throughput.avg
+                )
+            )
         if rank == 0:
             for (cls_idx, iou) in enumerate(iou_class):
                 logger.info('***** Evaluation ***** >>>> Class [{:} {:}] IoU: {:.2f}, '
