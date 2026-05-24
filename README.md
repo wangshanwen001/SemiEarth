@@ -5,6 +5,7 @@ The code implementation of the SemiEarth.
 
 ### Environment
 ---
+Please run the following script to install the SemiEarth runtime environment.
 ```
 pip install -r requirements.txt
 ```
@@ -37,17 +38,21 @@ Your file structure will be like:
 
 ### Training and validation
 ---
+Please run the following script to train the model and obtain the training metrics.
 ```
 sh scripts/train_love_1_100.sh 8 29501 29502 29503 29504 29505 29506 29507 29508
 ```
 ### Testing
 ---
+Please run the following script to test the model and obtain the evaluation metrics.
 ```
 python test.py --config configs/dataset.yaml --checkpoint 'best.pth'
+python profile_model.py --config configs/dataset.yaml --checkpoint 'best.pth' --input-size 'size'
 ```
 
 ### Determined AI
 ---
+If your laboratory has configured Determined AI, you can run the following script for training.
 ```
 cd det_create
 det e create det_4090.yaml .
