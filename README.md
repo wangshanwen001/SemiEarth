@@ -67,12 +67,18 @@ Download the [Checkpoints.pth](https://huggingface.co/fluorites/SemiEarth/tree/m
 ---
 If you find it useful, please consider citing:
 ```
-@article{wang2026vision,
-  title         = {Vision-Language Model Purified Semi-Supervised Semantic Segmentation for Remote Sensing Images},
-  author        = {Wang, Shanwen and Sun, Xin and Hong, Danfeng and Zhou, Fei},
-  journal       = {arXiv preprint arXiv:2602.00202},
-  year          = {2026},
-  month         = feb,
-  note          = {Available at \url{https://arxiv.org/abs/2602.00202}}
-}
+@ARTICLE{11612938,
+  author={Wang, Shanwen and Sun, Xin and Hong, Danfeng and Zhou, Fei},
+  journal={IEEE Transactions on Geoscience and Remote Sensing}, 
+  title={Vision-Language Model Purified Semi-Supervised Semantic Segmentation for Remote Sensing Images}, 
+  year={2026},
+  volume={},
+  number={},
+  pages={1-1},
+  keywords={Labeling;Modeling;Training;Remote sensing;Semantic segmentation;Pixel;Visualization;Conferences;Computers;Purification;Remote Sensing;Vision-Language Model;Semi-Supervised Semantic Segmentation},
+  doi={10.1109/TGRS.2026.3714367}}
 ```
+
+### Acknowledgments
+---
+We sincerely thank the authors of [Qwen-VL](https://github.com/QwenLM/Qwen3-VL) and [UniMatch](https://github.com/LiheYoung/UniMatch) for their excellent open‑source work.
